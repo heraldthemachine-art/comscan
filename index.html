@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>X Communities — Memecoin Directory (MVP)</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%93%8D%3C/text%3E%3C/svg%3E">
+  <style>
+    :root{
+      /* Charcoal & Tan palette */
+      --bg:#0f1112;            /* near-black charcoal */
+      --bg2:#141618;           /* card charcoal */
+      --stroke:#272b2f;        /* subtle borders */
+      --tan:#d5b98a;           /* primary tan */
+      --tan-strong:#c8a767;    /* darker tan for accents */
+      --text:#e8e3da;          /* off-white/eggshell */
+      --muted:#a9a39a;         /* muted text */
+      --chip:#1b1e21;          /* chip bg */
+      --good:#82c084;          /* growth positive */
+      --bad:#e57373;           /* growth negative */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#0b0c0d);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial}
+    a{color:var(--tan);text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    header{position:sticky;top:0;background:rgba(15,17,18,.75);backdrop-filter:blur(6px);border-bottom:1px solid var(--stroke);z-index:50}
+    .wrap{max-width:1200px;margin:0 auto;padding:14px 16px}
+    .title{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    h1{margin:0;font-size:20px;letter-spacing:.2px}
+    .sub{color:var(--muted);font-size:12px;margin-top:4px}
+
+    .toolbar{display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-top:12px;align-items:center}
+    .toolbar-rows{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    input[type="search"],input[type="text"],select,button{border:1px solid var(--stroke);background:#121416;color:var(--text);border-radius:12px;padding:10px 12px}
+    input[type="search"],input[type="text"]{min-width:240px}
+    select{min-width:150px}
+    .btn{cursor:pointer;font-weight:600}
+    .btn.primary{background:linear-gradient(180deg,var(--tan),var(--tan-strong));color:#1a1a1a;border:none}
+
+    main.wrap{padding-top:18px}
+    .section-title{margin:8px 0 10px;font-weight:800;color:var(--text)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+    .card{background:var(--bg2);border:1px solid var(--stroke);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .idline{display:flex;align-items:center;gap:10px}
+    .avatar{width:36px;height:36px;border-radius:10px;border:1px solid var(--stroke);object-fit:cover}
+    .name{font-weight:800}
+    .badge{font-size:11px;padding:4px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--stroke);color:var(--muted)}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .metric{background:#121416;border:1px dashed var(--stroke);border-radius:12px;padding:8px}
+    .metric .val{font-weight:800;font-size:16px}
+    .metric .lbl{font-size:11px;color:var(--muted)}
+
+    details{border:1px dashed var(--stroke);border-radius:12px;padding:10px}
+    summary{cursor:pointer;font-weight:700}
+
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn.ghost{background:#121416}
+    .muted{color:var(--muted)}
+
+    /* Modal */
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:100}
+    .modal.show{display:flex}
+    .sheet{width:min(920px,92vw);max-height:90vh;overflow:auto;background:var(--bg2);border:1px solid var(--stroke);border-radius:20px}
+    .sheet header{position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--stroke);padding:10px 14px}
+    .sheet .body{padding:14px}
+    .kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;margin:8px 0}
+    .kv div:nth-child(odd){color:var(--muted)}
+
+    /* small helpers */
+    .up{color:var(--good)}
+    .dn{color:var(--bad)}
+    .spinner{border:3px solid var(--stroke);border-top:3px solid var(--tan);border-radius:50%;width:18px;height:18px;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="title">
+        <div>
+          <h1>Memecoin X Communities</h1>
+          <div class="sub">Trending pairs (Dexscreener) + Community discovery (X). Search by ticker or contract.</div>
+        </div>
+        <button id="refreshTrending" class="btn primary" title="Reload trending">↻ Refresh Trending</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-rows">
+          <input id="q" type="search" placeholder="Search by TICKER (e.g., HAPPY) or paste Contract Address"/>
+          <input id="ca" type="text" placeholder="Optional: Contract Address (EVM 0x… or Solana)"/>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn" id="btnSearch">Search Communities</button>
+          <button class="btn" id="btnByCA">Search by Contract</button>
+        </div>
+        <div style="display:flex;gap:10px;justify-self:end">
+          <select id="chain">
+            <option value="">All chains</option>
+            <option>Solana</option>
+            <option>Ethereum</option>
+            <option>Base</option>
+          </select>
+          <select id="sort">
+            <option value="posts_7d">Sort: Posts (7d)</option>
+            <option value="members_total">Sort: Members</option>
+            <option value="growth_30d">Sort: Growth 30d</option>
+            <option value="engagement_rate">Sort: Engagement</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <h3 class="section-title">Trending Coins (Dexscreener)</h3>
+    <div id="trendingGrid" class="grid"></div>
+
+    <h3 class="section-title" style="margin-top:18px">Saved Communities Directory</h3>
+    <div id="grid" class="grid"></div>
+    <div class="muted" style="margin-top:14px">Trending comes from Dexscreener (public). Community search calls your backend X API. Saved items will appear in this directory once you wire Firebase.</div>
+  </main>
+
+  <!-- Modal for details / search preview -->
+  <div id="modal" class="modal" aria-hidden="true" role="dialog">
+    <div class="sheet">
+      <header class="row">
+        <div class="idline">
+          <img id="m_avatar" class="avatar" alt="avatar"/>
+          <div>
+            <div id="m_name" class="name"></div>
+            <div id="m_creator" class="muted"></div>
+          </div>
+        </div>
+        <button class="btn" onclick="closeModal()">Close</button>
+      </header>
+      <div class="body">
+        <div class="kv">
+          <div>Bio</div><div id="m_bio"></div>
+          <div>Coin</div><div id="m_coin"></div>
+          <div>Creator</div><div id="m_creator2"></div>
+          <div>Member count</div><div id="m_members"></div>
+          <div>Active (7d)</div><div id="m_active"></div>
+          <div>Posts (7d)</div><div id="m_posts"></div>
+          <div>Engagement</div><div id="m_eng"></div>
+          <div>Growth (30d)</div><div id="m_growth"></div>
+          <div>Creation date</div><div id="m_created"></div>
+          <div>Official linked</div><div id="m_official"></div>
+          <div>Hashtags</div><div id="m_tags"></div>
+          <div>Links</div><div id="m_links"></div>
+          <div>Notable members</div><div id="m_kols"></div>
+          <div>Language mix</div><div id="m_lang"></div>
+          <div>Notes</div><div id="m_notes"></div>
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button id="btnSavePreview" class="btn primary">Save to Directory</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ======= STATE =======
+let directoryData = []; // Your saved communities (replace with Firebase later)
+let trending = [];      // Dexscreener trending cache
+let lastPreview = null; // holds the latest /api/search preview payload
+
+// ======= HELPERS =======
+function chip(txt){return `<span class="badge">${txt}</span>`}
+function fmtPct(x){if(x===undefined||x===null) return '—'; return (x>0?'+':'') + (x*1).toFixed(2) + '%'}
+function fmtNum(n){return (n??0).toLocaleString()}
+function safeLink(url,label){
+  if(!url) return `<span class=\"muted\">N/A</span>`;
+  try{ const u = new URL(url, location.href); return `<a href="${u.href}" target="_blank" rel="noopener">${label||u.hostname}</a>`; }catch{ return `<a href="${url}" target="_blank" rel="noopener">${label||url}</a>` }
+}
+function isContractLike(s){
+  if(!s) return false;
+  const str = s.trim();
+  // EVM 0x..40 bytes
+  if(/^0x[a-fA-F0-9]{40}$/.test(str)) return true;
+  // Solana base58-ish length heuristic (26-44 chars, no 0OIl)
+  if(/^[1-9A-HJ-NP-Za-km-z]{26,44}$/.test(str)) return true;
+  return false;
+}
+
+// ======= TRENDING (Dexscreener) =======
+async function loadTrending(){
+  setTrendingLoading(true);
+  try{
+    const r = await fetch('https://api.dexscreener.com/latest/dex/trending');
+    const j = await r.json();
+    trending = (j.pairs||[]).slice(0, 24).map(p=>({
+      pairId: p.pairAddress || p.url || '',
+      chain: p.chainId || p.chain || '',
+      dexId: p.dexId || '',
+      token: {
+        symbol: (p.baseToken?.symbol || p.quoteToken?.symbol || '').toUpperCase(),
+        name: p.baseToken?.name || p.quoteToken?.name || '',
+        address: p.baseToken?.address || p.quoteToken?.address || ''
+      },
+      priceUsd: p.priceUsd ? Number(p.priceUsd) : null,
+      change24h: p.priceChange?.h24 !== undefined ? Number(p.priceChange.h24) : null,
+      vol24h: p.volume?.h24 || null,
+      liquidityUsd: p.liquidity?.usd || null
+    }));
+    renderTrending();
+  }catch(e){
+    console.error(e);
+    document.getElementById('trendingGrid').innerHTML = `<div class="muted">Failed to load trending.</div>`
+  }finally{setTrendingLoading(false)}
+}
+
+function setTrendingLoading(is){
+  const btn = document.getElementById('refreshTrending');
+  if(!btn) return;
+  btn.disabled = is; btn.innerHTML = is? `<span class="spinner"></span>` : '↻ Refresh Trending';
+}
+
+function renderTrending(){
+  const grid = document.getElementById('trendingGrid');
+  grid.innerHTML = trending.map(t=>trendingCard(t)).join('') || `<div class="muted">No trending data.</div>`;
+}
+
+function trendingCard(t){
+  const c = t.change24h; const cls = (c||0)>=0?'up':'dn';
+  return `
+  <article class="card">
+    <div class="row">
+      <div class="idline">
+        <img class="avatar" src="https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(t.token.symbol)}" alt="${t.token.symbol}"/>
+        <div>
+          <div class="name">${t.token.name || t.token.symbol} <span class="muted">($${t.token.symbol})</span></div>
+          <div class="muted">${t.chain} • ${t.dexId||'DEX'}</div>
+        </div>
+      </div>
+      <div class="chips">
+        ${t.priceUsd? chip(`$${Number(t.priceUsd).toFixed(6)}`):''}
+        ${c!==null? `<span class="badge ${cls}">${c>=0?'▲':'▼'} ${fmtPct(c)}</span>`:''}
+      </div>
+    </div>
+    <div class="metrics">
+      ${metric('24h Volume', t.vol24h? '$'+fmtNum(Math.round(t.vol24h)):'—')}
+      ${metric('Liquidity', t.liquidityUsd? '$'+fmtNum(Math.round(t.liquidityUsd)):'—')}
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="findCommunity('${t.token.symbol}')">Find X Community</button>
+      ${t.token.address? `<button class="btn ghost" onclick="searchByCA('${t.chain}','${t.token.address}')">By Contract</button>`:''}
+    </div>
+  </article>`
+}
+
+function metric(lbl,val){return `<div class="metric"><div class="val">${val??'—'}</div><div class="lbl">${lbl}</div></div>`}
+
+// ======= COMMUNITY SEARCH (X API via your backend) =======
+async function runSearch(q){
+  // Calls your serverless function: implement on Netlify/Next as /api/search
+  const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+  if(!r.ok) throw new Error('Search failed');
+  return await r.json();
+}
+async function savePreview(preview){
+  const r = await fetch(`/api/save`,{
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(preview)
+  });
+  if(!r.ok) throw new Error('Save failed');
+  return await r.json();
+}
+
+async function findCommunity(ticker){
+  try{
+    const preview = await runSearch(ticker);
+    lastPreview = preview; openPreview(preview);
+  }catch(e){
+    console.error(e);
+    alert('Search failed. Ensure /api/search is deployed and your X key is set in Netlify env vars.');
+  }
+}
+
+async function searchByCA(chain, address){
+  try{
+    // If chain/address passed from card, use them; else read from inputs
+    if(!chain || !address){
+      address = document.getElementById('ca').value.trim();
+      if(!isContractLike(address)) return alert('Enter a valid contract address');
+    }
+    // Use Dexscreener to resolve CA -> token symbol/name
+    const url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
+    const r = await fetch(url); const j = await r.json();
+    const pair = (j.pairs||[])[0];
+    if(!pair){ alert('No token found for that contract.'); return; }
+    const symbol = (pair.baseToken?.address?.toLowerCase() === address.toLowerCase()) ? pair.baseToken.symbol : (pair.quoteToken?.symbol || '');
+    const sym = (symbol||'').toUpperCase();
+    if(!sym){ alert('Could not resolve ticker from contract.'); return; }
+    await findCommunity(sym);
+  }catch(e){ console.error(e); alert('Contract lookup failed.'); }
+}
+
+// ======= PREVIEW MODAL POPULATION =======
+function openPreview(pre){
+  // Minimal mapping from preview (as returned by /api/search example I gave earlier)
+  document.getElementById('m_avatar').src = pre.creator_profile_image || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(pre.ticker||pre.name||'x')}`;
+  document.getElementById('m_name').textContent = pre.name || `${pre.ticker} Community`;
+  document.getElementById('m_creator').textContent = `@${pre.creator_handle||''} • $${pre.ticker||''}`;
+  document.getElementById('m_bio').textContent = pre.bio||'';
+  document.getElementById('m_coin').innerHTML = `$${pre.ticker||''}`;
+  document.getElementById('m_creator2').textContent = `@${pre.creator_handle||''} (${pre.creator_name||''})`;
+  document.getElementById('m_members').textContent = '—';
+  document.getElementById('m_active').textContent = `${pre.metrics?.unique_authors_7d_estimate||0} active`;
+  document.getElementById('m_posts').textContent = `${pre.metrics?.posts_7d_estimate||0}`;
+  document.getElementById('m_eng').textContent = `${pre.metrics?.engagement_proxy||0}`;
+  document.getElementById('m_growth').textContent = '—';
+  document.getElementById('m_created').textContent = '—';
+  document.getElementById('m_official').textContent = '—';
+  document.getElementById('m_tags').innerHTML = (pre.hashtags||[]).map(h=>chip(h)).join(' ')||'<span class="muted">—</span>';
+  document.getElementById('m_links').innerHTML = '<span class="muted">—</span>';
+  document.getElementById('m_kols').textContent = '—';
+  document.getElementById('m_lang').textContent = '—';
+  document.getElementById('m_notes').textContent = '—';
+
+  const modal = document.getElementById('modal');
+  modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
+}
+function closeModal(){
+  const modal = document.getElementById('modal');
+  modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
+}
+
+// Save button in modal
+document.addEventListener('click', async (e)=>{
+  if(e.target && e.target.id==='btnSavePreview'){
+    if(!lastPreview){ alert('Nothing to save yet.'); return; }
+    try{
+      const out = await savePreview(lastPreview);
+      alert('Saved. It will appear in your directory once you hook Firebase reads.');
+    }catch(err){ console.error(err); alert('Save failed. Ensure /api/save exists and Firebase creds are set.'); }
+  }
+});
+
+// ======= DIRECTORY (demo) =======
+function renderDirectory(){
+  const elGrid = document.getElementById('grid');
+  const chain = document.getElementById('chain').value;
+  const sortKey = document.getElementById('sort').value;
+  const filtered = directoryData.filter(c=>!chain || c.chain===chain).sort((a,b)=>{
+    if(sortKey==="engagement_rate") return (b.metrics?.engagement_rate||0)-(a.metrics?.engagement_rate||0);
+    if(sortKey==="growth_30d") return (b.metrics?.growth_30d||0)-(a.metrics?.growth_30d||0);
+    if(sortKey==="members_total") return (b.metrics?.members_total||0)-(a.metrics?.members_total||0);
+    return (b.metrics?.posts_7d||0)-(a.metrics?.posts_7d||0);
+  });
+  elGrid.innerHTML = filtered.map(c=>directoryCard(c)).join('') || `<div class="muted">No saved communities yet.</div>`;
+}
+
+function directoryCard(c){
+  const g = c.metrics?.growth_30d ?? 0;
+  const gCls = g>=0? 'up':'dn';
+  return `
+  <article class="card">
+    <div class="row">
+      <div class="idline">
+        <img class="avatar" src="${c.branding?.profile_image||c.creator?.profile_image||''}" alt="${c.name}"/>
+        <div>
+          <div class="name">${c.name}</div>
+          <div class="muted">$${c.coin?.ticker||''} • ${c.chain||''}</div>
+        </div>
+      </div>
+      <div class="chips">
+        ${chip(`${fmtNum(c.metrics?.members_total||0)} members`)}
+        ${chip(`${fmtNum(c.metrics?.posts_7d||0)} posts/7d`)}
+        <span class="badge ${gCls}">${g>=0? '▲' : '▼'} ${Math.abs(g*100).toFixed(0)}% 30d</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="window.open('https://x.com/search?q=%24${encodeURIComponent(c.coin?.ticker||'')}&f=live','_blank')">Open X Feed</button>
+    </div>
+  </article>`
+}
+
+// ======= EVENT WIRING =======
+window.addEventListener('DOMContentLoaded', ()=>{
+  loadTrending();
+  renderDirectory();
+
+  document.getElementById('refreshTrending').addEventListener('click', loadTrending);
+  document.getElementById('chain').addEventListener('change', ()=>{ renderTrending(); renderDirectory(); });
+  document.getElementById('sort').addEventListener('change', renderDirectory);
+
+  document.getElementById('btnSearch').addEventListener('click', async ()=>{
+    const q = document.getElementById('q').value.trim();
+    const ca = document.getElementById('ca').value.trim();
+    if(isContractLike(q)) return searchByCA('', q);
+    if(ca) return searchByCA('', ca);
+    if(!q) return alert('Enter a ticker or paste a contract.');
+    await findCommunity(q);
+  });
+  document.getElementById('btnByCA').addEventListener('click', async ()=>{
+    const ca = document.getElementById('ca').value.trim() || document.getElementById('q').value.trim();
+    if(!isContractLike(ca)) return alert('Enter a valid contract address');
+    await searchByCA('', ca);
+  });
+});
+</script>
+</body>
+</html>
