@@ -2,7 +2,7 @@ name: Publish SOL Paper OHLCV Feed
 
 on:
   schedule:
-    # Refresh ten-minute OHLCV snapshots; no trading or secrets.
+    # Refresh read-only candles on a staggered ten-minute UTC schedule.
     - cron: "7,17,27,37,47,57 * * * *"
   workflow_dispatch:
   push:
