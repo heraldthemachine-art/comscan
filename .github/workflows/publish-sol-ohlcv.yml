@@ -1,0 +1,40 @@
+name: Publish SOL Paper OHLCV Feed
+
+on:
+  schedule:
+    # Stagger away from the top of the hour; market-data only.
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sol-public-candle-feed
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout isolated market-data branch
+        uses: actions/checkout@v4
+        with:
+          ref: sol-ohlcv-feed
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Validate Kraken OHLCV and build read-only snapshot
+        run: python3 scripts/build_sol_ohlcv_feed.py market/ohlcv
+      - name: Publish only passing snapshots to isolated branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add market/ohlcv/*.json
+          if git diff --cached --quiet; then
+            echo "No market-data changes"
+            exit 0
+          fi
+          git commit -m "Update validated SOL/BTC public OHLCV snapshots"
+          git push origin HEAD:sol-ohlcv-feed
