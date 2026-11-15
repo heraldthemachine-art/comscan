@@ -28,8 +28,18 @@ jobs:
           ref: sol-ohlcv-feed
           fetch-depth: 1
           persist-credentials: true
-      - name: Validate Kraken OHLCV and build read-only snapshot
-        run: python3 scripts/build_sol_ohlcv_feed.py market/ohlcv
+      - name: Probe independent Binance.US fallback (diagnostic only)
+        continue-on-error: true
+        run: python3 scripts/build_binanceus_ohlcv_feed.py /tmp/sol-backup-probe
+      - name: Validate Kraken OHLCV with Binance.US fallback
+        run: |
+          set -euo pipefail
+          if python3 scripts/build_sol_ohlcv_feed.py market/ohlcv; then
+            echo "Primary Kraken OHLCV validation passed"
+          else
+            echo "Primary Kraken failed; attempting independent Binance.US fallback"
+            python3 scripts/build_binanceus_ohlcv_feed.py market/ohlcv
+          fi
       - name: Publish only passing snapshots to isolated branch
         run: |
           set -euo pipefail
