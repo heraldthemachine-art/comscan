@@ -2,8 +2,8 @@ name: Publish SOL Paper OHLCV Feed
 
 on:
   schedule:
-    # Stagger away from the top of the hour; market-data only.
-    - cron: "37 * * * *"
+    # Refresh ten-minute OHLCV snapshots; no trading or secrets.
+    - cron: "7,17,27,37,47,57 * * * *"
   workflow_dispatch:
 
 permissions:
