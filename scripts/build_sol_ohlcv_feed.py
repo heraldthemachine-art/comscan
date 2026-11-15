@@ -51,9 +51,11 @@ def get_candles(pair: str, interval: int, now: int) -> tuple[dict, dict]:
     raw = result[keys[0]]
     if len(raw) < MIN_BARS + 1:
         raise ValueError(f"Kraken {pair}/{interval}: fewer than 100 completed bars")
-    raw = raw[:-1]  # Kraken includes the CURRENT uncommitted bar as its final row.
-    bars = []
     period = interval * 60
+    # Kraken normally adds the currently forming bar last. Discard it, then
+    # independently drop ANY row whose close falls after retrieval time.
+    raw = [row for row in raw[:-1] if int(row[0]) + period <= now]
+    bars = []
     for record in raw[-SAVE_BARS:]:
         if not isinstance(record, list) or len(record) < 8:
             raise ValueError(f"Kraken {pair}/{interval}: malformed OHLC row")
@@ -64,7 +66,7 @@ def get_candles(pair: str, interval: int, now: int) -> tuple[dict, dict]:
             raise ValueError(f"Kraken {pair}/{interval}: nonfinite value")
         if min(o, h, l, c) <= 0 or v < 0 or count < 0 or h < max(o, c, l) or l > min(o, c, h):
             raise ValueError(f"Kraken {pair}/{interval}: invalid OHLCV")
-        if start % period != 0 or start + period > now + 30:
+        if start % period != 0 or start + period > now:
             raise ValueError(f"Kraken {pair}/{interval}: noncompleted/misaligned bar")
         bars.append([start, o, h, l, c, v, count])
 
@@ -75,7 +77,7 @@ def get_candles(pair: str, interval: int, now: int) -> tuple[dict, dict]:
         raise ValueError(f"Kraken {pair}/{interval}: gaps or duplicate times in last 100")
     last_close = latest100[-1][0] + period
     age = now - last_close
-    if age < -30 or age > period + 120:
+    if age < 0 or age > period + 120:
         raise ValueError(f"Kraken {pair}/{interval}: last closed bar age {age}s is outside limit")
 
     label = f"{pair}-{interval}m"
