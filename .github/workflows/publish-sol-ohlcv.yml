@@ -40,6 +40,20 @@ jobs:
             echo "Primary Kraken failed; attempting independent Binance.US fallback"
             python3 scripts/build_binanceus_ohlcv_feed.py market/ohlcv
           fi
+      - name: Smoke-test public quote verification (offline fixtures)
+        continue-on-error: true
+        run: |
+          python3 -m unittest discover -s tests -p 'test_public_spot_quotes.py' -v
+      - name: Attach independent timed SOL/BTC spot evidence (optional)
+        run: |
+          set -euo pipefail
+          # A quote-provider outage must never block valid candle publication.
+          # The quote script records DATA_UNAVAILABLE, not fabricated quotes.
+          if python3 scripts/attach_public_spot_quotes.py market/ohlcv; then
+            echo "Public quote audit recorded in manifest"
+          else
+            echo "::warning::Quote audit unavailable; candle feed still publishes, no quotes claimed"
+          fi
       - name: Publish only passing snapshots to isolated branch
         run: |
           set -euo pipefail
