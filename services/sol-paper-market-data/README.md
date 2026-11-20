@@ -24,6 +24,17 @@ curl -i https://<deployed-subdomain>.workers.dev/v1/health
 
 The Worker must be deployed under a separate Cloudflare account/application. A Cloudflare connection or deployment login is required for permanent deployment. Existing GitHub cron publisher can continue untouched as independent fallback. Do not link this Worker to the original four-strategy coordinator yet.
 
+
+## On-demand Vercel function (prepared, NOT deployed)
+
+The same read-only validation engine can be called on demand, avoiding the timing limitations of GitHub's `schedule` trigger.
+
+- Import GitHub repository `heraldthemachine-art/comscan` into Vercel and set the **Root Directory** to `services/sol-paper-market-data` (Framework: Other, Node.js runtime). The connection/deployment must be explicitly authorized by the account owner.
+- After Vercel deploys the project, GET `https://<your-deployed-domain>/api/market-data?view=health` for pass/fail, or `?view=snapshot` for full actual candle/quote evidence. Neither endpoint persists market data, places trades, or sends alerts.
+- Test both routes at prospective scan times for at least 24 hours. Compare source timestamps against real UTC, independently inspect completed candle continuity, and require >=95% `DATA_READY` among eligible scans before proposing a coordinator cutover.
+- **Do not configure any coordinator to trust the URL until deployment has been independently tested and the user has approved the cutover.** A 503 or invalid JSON means HOLD, never a paper fill. Kraken/Coinbase/Binance.US can block Vercel network egress, in which case this option also fails closed.
+- `quote` data remain indicative USD/USDT market evidence, never executable SOL/USDC liquidity.
+
 ## Parallel acceptance criteria (minimum 24 hours after deployment)
 
 1. Query `/v1/health` at every existing paper scan time and sample between scans. Preserve outputs in a **separate** test log; do not write to original A/B/C/D2 workbook.
